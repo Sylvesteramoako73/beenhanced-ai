@@ -30,6 +30,7 @@ const CONTEXTS: { key: ContextKey; label: string; icon: string }[] = [
 interface Props {
   gmailConnected: boolean;
   gmailEmail?: string;
+  displayName: string;
 }
 
 // ─── Task panel components ────────────────────────────────────────────────────
@@ -320,7 +321,7 @@ type AllMessages = Record<ContextKey, Message[]>;
 
 const EMPTY_HISTORY: AllMessages = { general: [], marketing: [], social: [], admin: [], email: [] };
 
-export default function ChatClient({ gmailConnected }: Props) {
+export default function ChatClient({ gmailConnected, displayName }: Props) {
   const router = useRouter();
   const [context, setContext] = useState<ContextKey>("general");
   const [allMessages, setAllMessages] = useState<AllMessages>(EMPTY_HISTORY);
@@ -475,9 +476,9 @@ export default function ChatClient({ gmailConnected }: Props) {
 
         <div className="p-4 border-t border-brand-mid">
           <div className="flex items-center gap-3 px-3 py-2 mb-2">
-            <div className="w-7 h-7 rounded-full bg-gold/20 flex items-center justify-center text-gold text-xs font-medium">S</div>
+            <div className="w-7 h-7 rounded-full bg-gold/20 flex items-center justify-center text-gold text-xs font-medium">{displayName[0]}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-white text-xs font-medium truncate">Sylvester</p>
+              <p className="text-white text-xs font-medium truncate">{displayName}</p>
               <p className="text-text-dim text-xs truncate">BeEnhanced</p>
             </div>
           </div>

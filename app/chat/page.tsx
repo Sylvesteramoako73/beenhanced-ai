@@ -25,10 +25,13 @@ export default async function ChatPage() {
     );
   }
 
+  const displayName = session.userId === "emily" ? "Emily" : "Sylvester";
+
   return (
     <ChatClient
       gmailConnected={!!session.gmailAccessToken}
       gmailEmail={session.gmailEmail}
+      displayName={displayName}
     />
   );
 }
