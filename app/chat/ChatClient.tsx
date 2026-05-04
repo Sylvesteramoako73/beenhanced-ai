@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { ContextKey } from "@/lib/anthropic";
 
 interface Message {
@@ -314,10 +316,15 @@ Requirements:
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+type AllMessages = Record<ContextKey, Message[]>;
+
+const EMPTY_HISTORY: AllMessages = { general: [], marketing: [], social: [], admin: [], email: [] };
+
 export default function ChatClient({ gmailConnected }: Props) {
   const router = useRouter();
   const [context, setContext] = useState<ContextKey>("general");
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [allMessages, setAllMessages] = useState<AllMessages>(EMPTY_HISTORY);
+  const messages = allMessages[context];
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [sidebarView, setSidebarView] = useState<"chat" | "gmail">("chat");
@@ -339,15 +346,18 @@ export default function ChatClient({ gmailConnected }: Props) {
     }
   }, [input]);
 
+  function setMessages(ctx: ContextKey, msgs: Message[]) {
+    setAllMessages(prev => ({ ...prev, [ctx]: msgs }));
+  }
+
   function switchContext(key: ContextKey) {
     setContext(key);
-    setMessages([]);
     setInput("");
   }
 
   async function firePrompt(prompt: string) {
     const newMessages: Message[] = [...messages, { role: "user", content: prompt }];
-    setMessages(newMessages);
+    setMessages(context, newMessages);
     setLoading(true);
     try {
       const res = await fetch("/api/chat", {
@@ -356,9 +366,9 @@ export default function ChatClient({ gmailConnected }: Props) {
         body: JSON.stringify({ messages: newMessages, context }),
       });
       const data = await res.json();
-      setMessages([...newMessages, { role: "assistant", content: res.ok ? data.content : (data.error ?? "An error occurred.") }]);
+      setMessages(context, [...newMessages, { role: "assistant", content: res.ok ? data.content : (data.error ?? "An error occurred.") }]);
     } catch {
-      setMessages([...newMessages, { role: "assistant", content: "Connection error. Please try again." }]);
+      setMessages(context, [...newMessages, { role: "assistant", content: "Connection error. Please try again." }]);
     } finally {
       setLoading(false);
     }
@@ -494,7 +504,7 @@ export default function ChatClient({ gmailConnected }: Props) {
             <p className="text-text-dim text-xs">BeEnhanced AI</p>
           </div>
           {sidebarView === "chat" && messages.length > 0 && (
-            <button onClick={() => setMessages([])} className="ml-auto text-text-dim text-xs hover:text-white transition-colors">
+            <button onClick={() => setMessages(context, [])} className="ml-auto text-text-dim text-xs hover:text-white transition-colors">
               ← New task
             </button>
           )}
@@ -582,12 +592,36 @@ export default function ChatClient({ gmailConnected }: Props) {
                   {msg.role === "assistant" && (
                     <div className="w-7 h-7 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold text-xs mr-3 flex-shrink-0 mt-0.5">✦</div>
                   )}
-                  <div className={`max-w-[75%] rounded-lg px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap ${
+                  <div className={`max-w-[75%] rounded-lg px-4 py-3 text-sm leading-relaxed ${
                     msg.role === "user"
-                      ? "bg-gold/10 border border-gold/20 text-white ml-auto"
+                      ? "bg-gold/10 border border-gold/20 text-white ml-auto whitespace-pre-wrap"
                       : "bg-brand-deep border border-brand-mid text-white/90 ai-prose"
                   }`}>
-                    {msg.content}
+                    {msg.role === "assistant" ? (
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          h1: ({ children }) => <h1 className="font-heading text-xl text-gold mt-4 mb-2 first:mt-0">{children}</h1>,
+                          h2: ({ children }) => <h2 className="font-heading text-lg text-gold mt-4 mb-2 first:mt-0">{children}</h2>,
+                          h3: ({ children }) => <h3 className="font-heading text-base text-gold-light mt-3 mb-1 first:mt-0">{children}</h3>,
+                          p: ({ children }) => <p className="mb-3 last:mb-0">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+                          li: ({ children }) => <li>{children}</li>,
+                          strong: ({ children }) => <strong className="text-gold-light font-semibold">{children}</strong>,
+                          em: ({ children }) => <em className="text-white/70 italic">{children}</em>,
+                          blockquote: ({ children }) => <blockquote className="border-l-2 border-gold/40 pl-4 my-3 text-white/70 italic">{children}</blockquote>,
+                          hr: () => <hr className="border-brand-mid my-4" />,
+                          table: ({ children }) => <div className="overflow-x-auto my-3"><table className="w-full text-xs border-collapse">{children}</table></div>,
+                          thead: ({ children }) => <thead className="border-b border-brand-mid">{children}</thead>,
+                          th: ({ children }) => <th className="text-left py-2 px-3 text-text-muted font-medium tracking-wider uppercase text-xs">{children}</th>,
+                          td: ({ children }) => <td className="py-2 px-3 border-b border-brand-mid/50">{children}</td>,
+                          code: ({ children }) => <code className="bg-brand-mid px-1.5 py-0.5 rounded text-xs text-gold-light font-mono">{children}</code>,
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    ) : msg.content}
                   </div>
                 </div>
               ))}
